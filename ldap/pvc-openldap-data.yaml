@@ -1,0 +1,16 @@
+# Persistent Volume Claim for OpenLDAP Data
+# This will store the LDAP database persistently for Bitnami OpenLDAP.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openldap-data
+  labels:
+    app: test-openldap
+spec:
+  accessModes:
+    - ReadWriteOnce # Suitable for a single-pod application
+  resources:
+    requests:
+      storage: 1Gi # Request 1 GB of storage, adjust as needed
+  # Uncomment and set to your default StorageClass name if you want to be explicit
+  storageClassName: gp3-csi # Example: Use 'gp3-csi' or 'gp2-csi'

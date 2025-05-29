@@ -1,0 +1,23 @@
+# Route for phpLDAPadmin
+# Exposes the phpLDAPadmin web interface externally.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: phpldapadmin-route
+  labels:
+    app: phpldapadmin
+spec:
+  # IMPORTANT: Replace "phpldapadmin.apps.YOUR_CLUSTER_BASE_DOMAIN_HERE"
+  # with your actual OpenShift cluster's base domain.
+  # You can find your cluster's base domain by running:
+  # oc get ingresscontroller default -n openshift-ingress-operator -o jsonpath='{.status.domain}'
+  # For example, it might look like: phpldapadmin.apps.mycluster.example.com
+  host: phpldapadmin.apps.apps.cluster-9bvn9.9bvn9.sandbox2300.opentlc.com # <--- REPLACE THIS LINE
+  to:
+    kind: Service
+    name: phpldapadmin-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge # Recommended: TLS termination at the OpenShift router
+    insecureEdgeTerminationPolicy: Redirect # Redirect HTTP to HTTPS

@@ -1,0 +1,57 @@
+# Deployment for phpLDAPadmin
+# This defines the phpLDAPadmin web interface.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpldapadmin
+  labels:
+    app: phpldapadmin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpldapadmin
+  template:
+    metadata:
+      labels:
+        app: phpldapadmin
+    spec:
+      containers:
+        - name: phpldapadmin
+          image: osixia/phpldapadmin:0.9.0 # Using a specific version for stability
+          ports:
+            - containerPort: 80 # phpLDAPadmin default web port
+              protocol: TCP
+          env:
+            # Point phpLDAPadmin to the OpenLDAP service
+            # Format: <openldap-service-name>.<project-name>.svc.cluster.local
+            - name: PHPLDAPADMIN_LDAP_HOSTS
+              value: "openldap-service.ldap.svc.cluster.local" # Adjust if your project name is not dynamic
+            # Configure LDAPS for phpLDAPadmin connection to LDAP.
+            # Since OpenLDAP will use self-signed certs, we set REQCERT to 'allow'.
+            # PHPLDAPADMIN_LDAP_CLIENT_TLS_CACERT is not needed if you don't have a custom CA.
+            # - name: PHPLDAPADMIN_LDAP_CLIENT_TLS_CACERT
+            #   value: "/etc/ssl/certs/ca-certificates.crt" # Path to CA cert if using custom CA
+            - name: PHPLDAPADMIN_LDAP_CLIENT_TLS_REQCERT
+              value: "allow" # Set to "allow" to permit self-signed certificates from LDAP
+            - name: PHPLDAPADMIN_HTTPS
+              value: "false" # Set to "true" if you handle HTTPS directly in the container
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 45
+            periodSeconds: 15

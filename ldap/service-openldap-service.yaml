@@ -1,0 +1,21 @@
+# Service for OpenLDAP
+# Exposes the OpenLDAP pods internally within the OpenShift cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap-service
+  labels:
+    app: test-openldap
+spec:
+  selector:
+    app: test-openldap
+  ports:
+    - name: ldap
+      protocol: TCP
+      port: 389
+      targetPort: 389
+    - name: ldaps
+      protocol: TCP
+      port: 636
+      targetPort: 636
+  type: ClusterIP # Internal service access only

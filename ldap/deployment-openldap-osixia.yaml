@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+
+# services:
+#   openldap:
+#     image: osixia/openldap:1.5.0 # Using a stable version
+#     container_name: openldap
+#     hostname: openldap
+#     ports:
+#       - "10389:389" # Changed from 389 to 10389 on the host side for rootless Docker
+#     environment:
+#       # General LDAP settings
+#       - LDAP_DOMAIN=keycloak.training
+#       - LDAP_ADMIN_PASSWORD=adminpassword # Change this to a strong password
+#       - LDAP_READONLY_USER=true
+#       - LDAP_READONLY_USER_USERNAME=readonly
+#       - LDAP_READONLY_USER_PASSWORD=readonlypassword
+#       # --- Disable TLS ---
+#       - LDAP_TLS=false
+#     volumes:
+#       - openldap_data:/var/lib/ldap # Persistent data for OpenLDAP
+#       - openldap_config:/etc/ldap/slapd.d # Persistent configuration for OpenLDAP
+# 
+# volumes:
+#   openldap_data:
+#   openldap_config:
+
+metadata:
+  name: openldap
+  labels:
+    app: test-openldap # Consistent label
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-openldap # Selector matches pod template label
+  template:
+    metadata:
+      labels:
+        app: test-openldap # Pod template label
+    spec:
+    
+      #securityContext:
+      #  fsGroup: 1001
+
+      containers:
+        - name: openldap
+          securityContext:
+            runAsUser: 0
+            # allowPrivilegeEscalation: false
+          image: osixia/openldap:1.5.0
+          ports:
+            - containerPort: 389 # Standard LDAP port
+              protocol: TCP
+            - containerPort: 636 # LDAPS port
+              protocol: TCP
+          env:
+            - name: LDAP_DOMAIN
+              value: "keycloak.training"
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-admin-password
+                  key: LDAP_ADMIN_PASSWORD
+            - name: LDAP_READONLY_USER
+              value: "true"
+            - name: LDAP_READONLY_USER_USERNAME
+              value: "readonly"
+            - name: LDAP_READONLY_USER_PASSWORD
+              value: "readonlypassword"
+            - name: LDAP_TLS
+              value: "false"
+          volumeMounts:
+            - name: openldap-data-volume
+              mountPath: /var/lib/ldap
+              subPath: ldap_data # This directory will be created/used within your PVC
+            - name: openldap-data-volume
+              mountPath: /etc/ldap/slapd.d
+              subPath: ldap_config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          
+          #command: ["tail"] 
+          #args: ["-f", "/dev/null"]
+          
+          livenessProbe: # Checks if the container is still running
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe: # Checks if the container is ready to serve requests
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 45
+            periodSeconds: 15
+
+      volumes:
+        - name: openldap-data-volume
+          persistentVolumeClaim:
+            claimName: openldap-data

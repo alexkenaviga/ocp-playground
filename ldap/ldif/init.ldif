@@ -1,0 +1,40 @@
+dn: ou=users,dc=keycloak,dc=training
+objectClass: top
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=keycloak,dc=training
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
+
+# Example User 1
+dn: uid=john.doe,ou=users,dc=keycloak,dc=training
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: john.doe
+cn: John Doe
+sn: Doe
+mail: john.doe@keycloak.training
+userPassword: password123 # Change this!
+
+# Example User 2
+dn: uid=jane.smith,ou=users,dc=keycloak,dc=training
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: jane.smith
+cn: Jane Smith
+sn: Smith
+mail: jane.smith@keycloak.training
+userPassword: password456 # Change this!
+
+# Example Group
+dn: cn=developers,ou=groups,dc=keycloak,dc=training
+objectClass: top
+objectClass: groupOfNames
+cn: developers
+member: uid=john.doe,ou=users,dc=keycloak,dc=training

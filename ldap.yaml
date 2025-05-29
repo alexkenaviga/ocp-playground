@@ -1,0 +1,236 @@
+# This YAML file contains the OpenShift resource definitions for OpenLDAP and phpLDAPadmin.
+#
+# Before applying, ensure you have:
+# - An OpenShift project created (e.g., `oc new-project my-ldap-project`).
+# - A StorageClass configured in your OpenShift cluster for the PVC.
+#
+# To apply these resources:
+# oc apply -f <this-file-name>.yaml
+---
+# -----------------------------------------------------------------------------
+# OpenLDAP Resources
+# -----------------------------------------------------------------------------
+
+# Secret for OpenLDAP Admin Password
+# Replace 'your-admin-password' with a strong password.
+# Base64 encode your password: echo -n 'your-admin-password' | base64
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openldap-admin-password
+  labels:
+    app: test-openldap
+type: Opaque
+data:
+  LDAP_ADMIN_PASSWORD: eW91ci1hZG1pbi1wYXNzd29yZA== # Replace with base64 encoded password
+---
+# Persistent Volume Claim for OpenLDAP Data
+# This will store the LDAP database persistently.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openldap-data
+  labels:
+    app: test-openldap
+spec:
+  accessModes:
+    - ReadWriteOnce # Suitable for a single-pod application
+  resources:
+    requests:
+      storage: 1Gi # Request 1 GB of storage, adjust as needed
+  # storageClassName: standard # Uncomment and replace with your StorageClass name if needed
+---
+# Deployment for OpenLDAP Server
+# This defines the OpenLDAP container and its configuration.
+# Switched from DeploymentConfig to standard Kubernetes Deployment.
+apiVersion: apps/v1 # Changed from apps.openshift.io/v1
+kind: Deployment # Changed from DeploymentConfig
+metadata:
+  name: openldap
+  labels:
+    app: test-openldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels: # Changed for Deployment kind
+      app: test-openldap
+  template:
+    metadata:
+      labels:
+        app: test-openldap
+    spec:
+      containers:
+        - name: openldap
+          image: osixia/openldap:1.5.0 # Using a specific version for stability
+          ports:
+            - containerPort: 389 # Standard LDAP port
+              protocol: TCP
+            - containerPort: 636 # LDAPS port
+              protocol: TCP
+          env:
+            - name: LDAP_DOMAIN
+              value: "example.org" # Your LDAP domain (e.g., example.org, mycompany.com)
+            - name: LDAP_ORGANISATION
+              value: "Example Company" # Your organization name
+            - name: LDAP_ADMIN_PASSWORD # Referencing the secret for the admin password
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-admin-password
+                  key: LDAP_ADMIN_PASSWORD
+            # The osixia/openldap image generates self-signed certificates by default
+            # if no custom certificate files are provided.
+            - name: LDAP_TLS_VERIFY_CLIENT
+              value: "never" # Set to "never" or "allow" for initial setup without client certs
+            # Removed explicit TLS certificate filenames as you have no certificates.
+            # The container will generate self-signed certificates.
+          volumeMounts:
+            - name: openldap-data-volume
+              mountPath: "/var/lib/ldap" # Path where OpenLDAP stores its data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe: # Checks if the container is still running
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe: # Checks if the container is ready to serve requests
+            tcpSocket:
+              port: 389
+            initialDelaySeconds: 45
+            periodSeconds: 15
+      volumes:
+        - name: openldap-data-volume
+          persistentVolumeClaim:
+            claimName: openldap-data
+---
+# Service for OpenLDAP
+# Exposes the OpenLDAP pods internally within the OpenShift cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap-service
+  labels:
+    app: test-openldap
+spec:
+  selector:
+    app: test-openldap
+  ports:
+    - name: ldap
+      protocol: TCP
+      port: 389
+      targetPort: 389
+    - name: ldaps
+      protocol: TCP
+      port: 636
+      targetPort: 636
+  type: ClusterIP # Internal service access only
+---
+# -----------------------------------------------------------------------------
+# phpLDAPadmin Resources
+# -----------------------------------------------------------------------------
+
+# Deployment for phpLDAPadmin
+# This defines the phpLDAPadmin web interface.
+# Switched from DeploymentConfig to standard Kubernetes Deployment.
+apiVersion: apps/v1 # Changed from apps.openshift.io/v1
+kind: Deployment # Changed from DeploymentConfig
+metadata:
+  name: phpldapadmin
+  labels:
+    app: test-openldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels: # Changed for Deployment kind
+      app: test-openldap
+  template:
+    metadata:
+      labels:
+        app: test-openldap
+    spec:
+      containers:
+        - name: phpldapadmin
+          image: osixia/phpldapadmin:1.2.5 # Using a specific version for stability
+          ports:
+            - containerPort: 80 # phpLDAPadmin default web port
+              protocol: TCP
+          env:
+            # Point phpLDAPadmin to the OpenLDAP service
+            # Format: <openldap-service-name>.<project-name>.svc.cluster.local
+            - name: PHPLDAPADMIN_LDAP_HOSTS
+              value: "openldap-service.{{ .Release.Namespace }}.svc.cluster.local" # Adjust if your project name is not dynamic
+            # Configure LDAPS for phpLDAPadmin connection to LDAP.
+            # Since OpenLDAP will use self-signed certs, we set REQCERT to 'allow'.
+            # PHPLDAPADMIN_LDAP_CLIENT_TLS_CACERT is not needed if you don't have a custom CA.
+            # - name: PHPLDAPADMIN_LDAP_CLIENT_TLS_CACERT
+            #   value: "/etc/ssl/certs/ca-certificates.crt" # Path to CA cert if using custom CA
+            - name: PHPLDAPADMIN_LDAP_CLIENT_TLS_REQCERT
+              value: "allow" # Set to "allow" to permit self-signed certificates from LDAP
+            - name: PHPLDAPADMIN_HTTPS
+              value: "false" # Set to "true" if you handle HTTPS directly in the container
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 45
+            periodSeconds: 15
+---
+# Service for phpLDAPadmin
+# Exposes the phpLDAPadmin pods internally within the OpenShift cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpldapadmin-service
+  labels:
+    app: test-openldap
+spec:
+  selector:
+    app: test-openldap
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP # Internal service access only
+---
+# Route for phpLDAPadmin
+# Exposes the phpLDAPadmin web interface externally.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: phpldapadmin-route
+  labels:
+    app: test-openldap
+spec:
+  # IMPORTANT: Replace "phpldapadmin.apps.YOUR_CLUSTER_BASE_DOMAIN_HERE"
+  # with your actual OpenShift cluster's base domain.
+  # You can find your cluster's base domain by running:
+  # oc get ingresscontroller default -n openshift-ingress-operator -o jsonpath='{.status.domain}'
+  # For example, it might look like: phpldapadmin.apps.mycluster.example.com
+  host: phpldapadmin.apps.apps.cluster-9bvn9.9bvn9.sandbox2300.opentlc.com # <--- REPLACE THIS LINE
+  to:
+    kind: Service
+    name: phpldapadmin-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge # Recommended: TLS termination at the OpenShift router
+    insecureEdgeTerminationPolicy: Redirect # Redirect HTTP to HTTPS
