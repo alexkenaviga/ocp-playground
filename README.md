@@ -1,6 +1,6 @@
 # Manual
 
---
+---
 
 ## Initialization
 
@@ -18,7 +18,7 @@ oc project ldap
 oc adm policy add-scc-to-user anyuid -z default -n ldap
 ```
 
---
+---
 
 ## Openldap
 
