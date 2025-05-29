@@ -58,4 +58,78 @@ oc delete all,pvc,cm,secret -l app=test-openldap
 oc delete all,pvc,cm,secret -l app=phpldapadmin
 ```
 
---
+---
+
+## PostgreSQL
+
+To **install** the database use:
+
+```bash
+oc new-project postgresql
+
+POSTGRE_NS=postgresql
+DB_NAME=test_database
+
+oc process -f postgresql/postgresql-persistent-template.json \
+   -p POSTGRESQL_VERSION=15 \
+   -p POSTGRESQL_USER=postgres \
+   -p POSTGRESQL_PASSWORD=postgres \
+   -p POSTGRESQL_DATABASE=$DB_NAME \
+   -p VOLUME_CAPACITY=2Gi \
+   -p DATABASE_SERVICE_NAME=psql-postgresql | oc create -n $POSTGRE_NS -f -
+
+oc set image deployment/psql-postgresql -n $POSTGRE_NS postgresql=registry.redhat.io/rhel9/postgresql-15
+
+oc wait -n $POSTGRE_NS deploy/psql-postgresql --for=condition=Available --timeout=5m
+
+POSTGRE_POD=$(oc get po -o name | grep psql | cut -d "/" -f 2)
+
+oc exec -n $POSTGRE_NS $POSTGRE_POD -i -- psql -U postgres -d postgres <<EOF
+CREATE DATABASE $DB_NAME;
+GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO postgres;
+EOF
+```
+
+**NOTE**: to delete resources use:
+
+```bash
+oc delete -n $POSTGRE_NS \
+    secret/psql-postgresql \
+	service/psql-postgresql \
+	persistentvolumeclaim/psql-postgresql \
+	deployment.apps/psql-postgresql 
+```
+
+---
+
+## Keycloak
+
+Get `keycloak` operator name with:
+
+```bash
+oc get packagemanifests -n openshift-marketplace | grep -i rhbk-operator
+```
+
+Then apply the `Subscription` and `OperatorGroup` in a new **namespace**:
+
+```bash
+oc new-project keycloak-operator
+oc apply -f keycloak/keycloak-operator-subscription.yaml
+```
+
+To check resources use:
+
+```bash
+oc get csv,subscription,operatorgroup,installplan -n keycloak-operator
+```
+
+Once the `installplan` is ready, approve it with:
+
+```bash
+INSTALL_PLAN=$(oc get installplan -n keycloak-operator | grep "rhbk-" | cut -d " " -f 1)
+oc patch installplan $INSTALL_PLAN -n keycloak-operator --type=merge -p '{"spec":{"approved":true}}'
+```
+
+---
+
+
