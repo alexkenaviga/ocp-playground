@@ -10,6 +10,7 @@
     - [Operator](#operator)
     - [Database](#database)
     - [CRD](#crd)
+    - [Init Realm](#init-realm)
 
 ---
 
@@ -48,8 +49,8 @@ Once `openldap` is **ready** install some user with:
 
 ```bash
 LDAP_POD=$(oc get po -n ldap -o name | grep "openldap-" | cut -d "/" -f 2)
-oc cp ldap/ldif/init.ldif $LDAP_POD:/tmp
-oc rsh $LDAP_POD ldapadd -x -D "cn=admin,dc=keycloak,dc=training" -w "your-admin-password" -f /tmp/init.ldif
+oc cp -n ldap ldap/ldif/init.ldif $LDAP_POD:/tmp
+oc rsh -n ldap $LDAP_POD ldapadd -x -D "cn=admin,dc=keycloak,dc=training" -w "your-admin-password" -f /tmp/init.ldif
 ```
 
 ### List resources
@@ -198,6 +199,28 @@ oc delete secret keycloak-initial-admin -n keycloak-operator
 ```
 
 **NOTE**: if you delete the CRD, also the database has to be removed (see [Drop database](#database))
+
+### Init Realm
+
+Reach the `Admin-Console` at the address you can find with:
+
+```bash
+oc get $(oc get route -n keycloak-operator -o name) -o jsonpath='{.spec.host}'
+```
+
+Use the top right menu to create a new **realm** (i.e.: *test*):
+
+![Create Realm](./keycloak/images/01-create-realm.png)
+
+Switch to the new **realm** and create a new **federation** of `LDAP` kind:
+
+![Create Federation](./keycloak/images/02-create-federation.png)
+
+Finally configure the **federation**:
+
+![Configure Federation 1](./keycloak/images/03-federation-parameters-1.png)
+
+![Configure Federation 2](./keycloak/images/04-federation-parameters-2.png)
 
 ---
 
