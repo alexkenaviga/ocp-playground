@@ -1,0 +1,30 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhbk-operator
+  namespace: keycloak-operator
+spec:
+  channel: stable-v26.0
+  name: rhbk-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Manual
+  startingCSV: rhbk-operator.v26.0.11-opr.1
+
+---
+
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: keycloak-operator-group # You can choose any name, but this is descriptive
+  namespace: keycloak-operator
+spec:
+  targetNamespaces:
+   - keycloak-operator
+  #
+  # For a single-namespace deployment where the operator should only manage resources
+  # within 'keycloak-operator', you can omit 'targetNamespaces'.
+  # If omitted, it defaults to the OperatorGroup's namespace.
+  # If you need the operator to manage resources across multiple namespaces,
+  # you would list them here, including 'keycloak-operator'.
+  # For now, omitting it is fine if it's a single-namespace installation.

@@ -104,6 +104,8 @@ oc delete -n $POSTGRE_NS \
 
 ## Keycloak
 
+### Operator
+
 Get `keycloak` operator name with:
 
 ```bash
@@ -129,6 +131,65 @@ Once the `installplan` is ready, approve it with:
 INSTALL_PLAN=$(oc get installplan -n keycloak-operator | grep "rhbk-" | cut -d " " -f 1)
 oc patch installplan $INSTALL_PLAN -n keycloak-operator --type=merge -p '{"spec":{"approved":true}}'
 ```
+
+### Database
+
+Create database in `postgresql`
+
+
+```bash
+POSTGRE_NS=postgresql;
+DB_NAME=keycloak;
+
+POSTGRE_POD=$(oc get po -o name -n $POSTGRE_NS | grep psql | cut -d "/" -f 2);
+
+oc exec -n $POSTGRE_NS $POSTGRE_POD -i -- psql -U postgres -d postgres <<EOF
+CREATE DATABASE $DB_NAME;
+GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO postgres;
+EOF
+```
+
+Drop database:
+
+```bash
+POSTGRE_NS=postgresql;
+DB_NAME=keycloak;
+
+POSTGRE_POD=$(oc get po -o name -n $POSTGRE_NS | grep psql | cut -d "/" -f 2);
+
+oc exec -n $POSTGRE_NS $POSTGRE_POD -i -- psql -U postgres -d postgres <<EOF 
+DROP DATABASE $DB_NAME;
+EOF
+```
+
+### CRD
+
+Apply the resources:
+
+```bash
+HOSTNAME=keycloack.apps.cluster-9bvn9.9bvn9.sandbox2300.opentlc.com # replace with yors
+oc apply -f keycloak/keycloak-crd.yaml
+oc patch keycloak keycloak -n keycloak-operator --type=merge -p "{\"spec\":{\"hostname\":{\"hostname\":\"$HOSTNAME\"}}}"
+
+KC_POD=$(oc get po -n keycloak-operator -l app=keycloak -o name)
+oc wait -n keycloak-operator $KC_POD --for=condition=Ready --timeout=5m
+```
+
+Once connected you can use the `username/password` defined in **secret** `keycloak-initial-admin` to login to `admin-console`:
+
+```bash
+oc get secret keycloak-initial-admin -n keycloak-operator -o jsonpath='{.data}' \
+    | jq -r 'to_entries[] | .key + ": " + (.value | @base64d)'
+```
+
+Delete resources:
+
+```bash
+oc delete secret,keycloak,all -n keycloak-operator -l app=test-keycloak
+oc delete secret keycloak-initial-admin -n keycloak-operator
+```
+
+**NOTE**: if you delete the CRD, also the database has to be removed (see [Drop database](#database))
 
 ---
 
