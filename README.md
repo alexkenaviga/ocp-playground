@@ -1,5 +1,17 @@
 # Readme
 
+- [Initialization](#initialization)
+    - [Create namespace](#create-namespace)
+    - [Allow root containers in namespace](#allow-root-containers-in-namespace)
+- [Openldap](#openldap)
+    - [Install](#install)
+    - [List resources](#list-resources)
+    - [Cleanup](#cleanup)
+- [PostgreSQL](#postgresql)
+- [Keycloak](#keycloak)
+    - [Operator](#operator)
+    - [Database](#database)
+    - [CRD](#crd)
 ---
 
 ## Initialization
