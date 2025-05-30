@@ -1,9 +1,7 @@
 # Readme
 
-- [Initialization](#initialization)
-    - [Create namespace](#create-namespace)
-    - [Allow root containers in namespace](#allow-root-containers-in-namespace)
 - [Openldap](#openldap)
+    - [Initialization](#initialization)
     - [Install](#install)
     - [List resources](#list-resources)
     - [Cleanup](#cleanup)
@@ -12,27 +10,25 @@
     - [Operator](#operator)
     - [Database](#database)
     - [CRD](#crd)
+
 ---
 
-## Initialization
+## Openldap
 
-### Create namespace
+### Initialization
+
+Create **namespace**:
 
 ```bash
 oc new-project ldap
 oc project ldap
 ```
 
-### Allow root containers in namespace
-
+Allow **root-containers** in **namespace**
 
 ```bash
 oc adm policy add-scc-to-user anyuid -z default -n ldap
 ```
-
----
-
-## Openldap
 
 ### Install
 
